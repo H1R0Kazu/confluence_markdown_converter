@@ -1,0 +1,13 @@
+# Confluence Configuration Template
+# Copy this file to config.yaml and update with your actual values
+
+confluence:
+  base_url: "https://yourcompany.atlassian.net"
+  username: "your-email@company.com"
+  api_token: "your-api-token-here"
+
+# Optional settings
+settings:
+  output_dir: "output"
+  default_limit: 50
+  default_search_limit: 25
