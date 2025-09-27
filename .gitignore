@@ -42,6 +42,9 @@ Thumbs.db
 # Configuration files
 config.yaml
 
+# Metadata files with personal information
+page_metadata_full.json
+
 # Generated files
 exported/
 converted/

@@ -14,6 +14,7 @@ from typing import Dict, List, Optional
 import argparse
 import yaml
 from dotenv import load_dotenv
+from html_to_markdown import ConfluenceMarkdownConverter
 
 
 class ConfluenceClient:
@@ -68,7 +69,22 @@ class ConfluenceClient:
         """
         url = f"{self.base_url}/rest/api/content/{page_id}"
         params = {
-            'expand': 'space,body.storage,version,ancestors'
+            'expand': 'space,body.storage,version,ancestors,history,metadata.labels,metadata.properties'
+        }
+        response = self.session.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def get_page_with_metadata(self, page_id: str) -> Dict:
+        """
+        Get a page with comprehensive metadata
+
+        Args:
+            page_id: Page ID
+        """
+        url = f"{self.base_url}/rest/api/content/{page_id}"
+        params = {
+            'expand': 'space,body.storage,version,ancestors,history.lastUpdated,history.contributors,metadata.labels,metadata.properties,children.comment'
         }
         response = self.session.get(url, params=params)
         response.raise_for_status()
@@ -129,6 +145,64 @@ class ConfluenceClient:
         print(f"Page exported to: {filepath}")
         return filepath
 
+    def export_page_to_markdown(self, page_id: str, output_dir: str = 'output'):
+        """
+        Export a page to a Markdown file
+
+        Args:
+            page_id: Page ID
+            output_dir: Output directory
+        """
+        # Get page with comprehensive metadata
+        page = self.get_page_with_metadata(page_id)
+        title = page.get('title', 'untitled')
+        content = page.get('body', {}).get('storage', {}).get('value', '')
+
+        # Create output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Initialize markdown converter
+        converter = ConfluenceMarkdownConverter()
+
+        # Sanitize filename
+        filename = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        filepath = os.path.join(output_dir, f"{filename}.md")
+
+        # Convert and save with metadata
+        converter.convert_to_file(content, title, filepath, page)
+
+        print(f"Page exported to Markdown: {filepath}")
+        return filepath
+
+    def export_space_to_markdown(self, space_key: str, output_dir: str = 'output', limit: int = 50):
+        """
+        Export all pages in a space to Markdown files
+
+        Args:
+            space_key: Space key
+            output_dir: Output directory
+            limit: Maximum number of pages to export
+        """
+        pages = self.get_pages_in_space(space_key, limit)
+        exported_files = []
+
+        # Create space-specific output directory
+        space_output_dir = os.path.join(output_dir, f"space_{space_key}")
+        os.makedirs(space_output_dir, exist_ok=True)
+
+        print(f"Exporting {len(pages)} pages from space '{space_key}' to Markdown...")
+
+        for i, page in enumerate(pages, 1):
+            try:
+                print(f"[{i}/{len(pages)}] Exporting: {page['title']}")
+                filepath = self.export_page_to_markdown(page['id'], space_output_dir)
+                exported_files.append(filepath)
+            except Exception as e:
+                print(f"Error exporting page '{page['title']}': {e}")
+
+        print(f"Exported {len(exported_files)} pages to: {space_output_dir}")
+        return exported_files
+
 
 def load_config():
     """Load configuration from config.yaml or environment variables"""
@@ -180,6 +254,12 @@ def main():
     parser.add_argument('--output-dir',
                        default=config.get('output_dir', 'output'),
                        help='Output directory for exported files')
+    parser.add_argument('--format',
+                       choices=['html', 'markdown', 'both'],
+                       default='html',
+                       help='Output format for exported pages')
+    parser.add_argument('--export-space',
+                       help='Export all pages from specified space to files')
 
     args = parser.parse_args()
 
@@ -198,7 +278,19 @@ def main():
     client = ConfluenceClient(args.base_url, args.username, args.token)
 
     try:
-        if args.space:
+        if args.export_space:
+            # Export all pages from space
+            print(f"Exporting all pages from space: {args.export_space}")
+            if args.format in ['markdown', 'both']:
+                client.export_space_to_markdown(args.export_space, args.output_dir)
+            if args.format in ['html', 'both']:
+                # Export to HTML as well if requested
+                pages = client.get_pages_in_space(args.export_space)
+                space_output_dir = os.path.join(args.output_dir, f"space_{args.export_space}")
+                for page in pages:
+                    client.export_page_to_file(page['id'], space_output_dir)
+
+        elif args.space:
             # List pages in space
             print(f"Getting pages from space: {args.space}")
             pages = client.get_pages_in_space(args.space)
@@ -208,7 +300,10 @@ def main():
         elif args.page_id:
             # Get specific page
             print(f"Retrieving page ID: {args.page_id}")
-            client.export_page_to_file(args.page_id, args.output_dir)
+            if args.format in ['html', 'both']:
+                client.export_page_to_file(args.page_id, args.output_dir)
+            if args.format in ['markdown', 'both']:
+                client.export_page_to_markdown(args.page_id, args.output_dir)
 
         elif args.search:
             # Search content

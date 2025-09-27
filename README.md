@@ -114,7 +114,25 @@ for space in spaces:
 - ✅ ページIDによる特定ページの取得
 - ✅ CQLを使った検索
 - ✅ ページのHTMLファイルエクスポート
+- ✅ **Markdownファイルエクスポート**（新機能）
+- ✅ **Confluence特有の要素変換**（新機能）
+- ✅ **ページメタデータ取得・表示**（新機能）
 - ✅ 設定ファイル対応（YAML/環境変数）
+
+### Markdown変換の特徴
+
+- **Confluence要素の完全対応**
+  - 📅 日付マクロ → `📅 2025-09-27`
+  - 👥 ユーザーメンション → `@username`
+  - 🎨 絵文字・アイコン → 標準的な絵文字
+  - プレースホルダーテキスト → *斜体*
+  - タスクリスト、テーブル、コードブロック
+
+- **メタデータの自動取得**
+  - 作成日時・作成者
+  - 最終更新日時・更新者
+  - バージョン番号・ラベル
+  - スペース情報
 
 ## テスト済み機能
 
@@ -124,31 +142,46 @@ for space in spaces:
 - ✅ Confluence Cloud接続
 - ✅ スペース一覧取得
 - ✅ ページ一覧取得
-- ✅ 個別ページエクスポート（HTMLファイル出力）
+- ✅ 個別ページエクスポート（HTML/Markdownファイル出力）
+- ✅ **Markdown変換機能**（新機能）
+- ✅ **メタデータ取得機能**（新機能）
 - ✅ 設定ファイル読み込み（.env形式）
 
 ### テスト例
 ```bash
 # スペース一覧の取得
 python confluence_client.py
-# → Available spaces: hirokazu miyata (Key: ~71202037...)
+# → Available spaces: Username (Key: ~xxxxx...)
 
 # 特定スペースのページ取得
-python confluence_client.py --space "~71202037..."
+python confluence_client.py --space "SPACE_KEY"
 # → 概要, ミーティング議事録 等のページ一覧を取得
 
-# ページエクスポート
-python confluence_client.py --page-id 163842
+# HTMLファイルとしてエクスポート
+python confluence_client.py --page-id 163842 --format html
 # → output/2025-09-27 ミーティング議事録.html として出力
+
+# Markdownファイルとしてエクスポート（推奨）
+python confluence_client.py --page-id 163842 --format markdown
+# → output/2025-09-27 ミーティング議事録.md として出力（メタデータ付き）
+
+# 両方のフォーマットで出力
+python confluence_client.py --page-id 163842 --format both
+
+# スペース全体をMarkdownでエクスポート
+python confluence_client.py --export-space "SPACE_KEY" --format markdown
+# → output/space_SPACE_KEY/内に全ページをMarkdown形式で出力
 ```
 
 ## ファイル構成
 
 - `confluence_client.py` - メインのクライアントクラス
+- `html_to_markdown.py` - **HTML→Markdown変換モジュール**（新規）
 - `example_usage.py` - 使用例
 - `config.yaml.example` - YAML設定ファイルのテンプレート
 - `.env.example` - 環境変数ファイルのテンプレート
-- `requirements.txt` - 必要なPythonパッケージ
+- `requirements.txt` - 必要なPythonパッケージ（html2text追加）
+- `test_metadata.py` - メタデータ構造分析用テストスクリプト（新規）
 
 ## 注意事項
 
