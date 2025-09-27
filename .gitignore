@@ -43,10 +43,13 @@ Thumbs.db
 config.yaml
 
 # Generated files
-*.md
 exported/
 converted/
 output/
+
+# Exclude generated markdown files but keep README
+*.md
+!README.md
 
 # Confluence specific
 confluence_data/
